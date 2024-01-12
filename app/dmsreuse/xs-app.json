@@ -10,17 +10,24 @@
       "csrfProtection": false
     },
     {
-      "source": "^/comsapecmreuse.comsapecmreusedocumentTable/api/(.*)$",
-      "target": "$1",
-      "destination": "ecmservice",
+      "source": "^/api/(.*)$",
+      "target": "/api/$1",
+      "destination": "ecmproxy",
       "authenticationType": "xsuaa",
+      "csrfProtection": false
+    },       
+    {
+      "source": "^/api2/(.*)$",
+      "target": "/api/$1",
+      "destination": "ecmproxy",
+      "authenticationType": "none",
       "csrfProtection": false
     },       
     {
       "source": "^/comsapecmreuse.comsapecmreusedocumentTable/(.*)$",
       "target": "$1",
       "destination": "comsapecmreuse",
-      "authenticationType": "xsuaa",
+      "authenticationType": "none",
       "csrfProtection": false
     }, 
     {

@@ -3,117 +3,157 @@ ID: cpapp
 description: A simple CAP project.
 version: 1.0.0
 modules:
-- name: cpapp-srv
-  type: nodejs
-  path: gen/srv
-  requires:
-  - name: cpapp-uaa
-  provides:
-  - name: srv-api
-    properties:
-      srv-url: ${default-url}
-  parameters:
-    buildpack: nodejs_buildpack
-  build-parameters:
-    builder: npm
-- name: cpapp-destinations
-  type: com.sap.application.content
-  requires:
-  - name: cpapp-uaa
-    parameters:
-      service-key:
-        name: cpapp-uaa-key
-  - name: cpapp-html5-repo-host
-    parameters:
-      service-key:
-        name: cpapp-html5-repo-host-key
-  - name: srv-api
-  - name: cpapp-destination
-    parameters:
-      content-target: true
-  parameters:
-    content:
-      instance:
-        destinations:
-        - Authentication: OAuth2UserTokenExchange
-          Name: cpapp-app-srv
-          TokenServiceInstanceName: cpapp-uaa
-          TokenServiceKeyName: cpapp-uaa-key
-          URL: ~{srv-api/srv-url}
-          sap.cloud.service: cpapp.service
-        - Name: cpapp-html5-repo-host
-          ServiceInstanceName: cpapp-html5-repo-host
-          ServiceKeyName: cpapp-html5-repo-host-key
-          sap.cloud.service: cpapp.service
-        - Authentication: OAuth2UserTokenExchange
-          Name: cpapp-uaa
-          ServiceInstanceName: cpapp-uaa
-          ServiceKeyName: cpapp-uaa-key
-          sap.cloud.service: cpapp.service
-        existing_destinations_policy: update
-  build-parameters:
-    no-source: true
-- name: cpapp-app-content
-  type: com.sap.application.content
-  path: .
-  requires:
-  - name: cpapp-html5-repo-host
-    parameters:
-      content-target: true
-  build-parameters:
-    build-result: resources
+  - name: cpapp-srv
+    type: nodejs
+    path: gen/srv
     requires:
-    - artifacts:
-      - comppgdmsreuse.zip
-      name: comppgdmsreuse
-      target-path: resources/
-- name: comppgdmsreuse
-  type: html5
-  path: app/dmsreuse
-  build-parameters:
-    build-result: dist
-    builder: custom
-    commands:
-    - npm install
-    - npm run build:cf
-    supported-platforms: []
-resources:
-- name: cpapp-uaa
-  type: org.cloudfoundry.managed-service
-  parameters:
-    config:
-      tenant-mode: dedicated
-      xsappname: cpapp-${org}-${space}
-    path: ./xs-security.json
-    service: xsuaa
-    service-plan: application
-- name: cpapp-destination
-  type: org.cloudfoundry.managed-service
-  parameters:
-    config:
-      HTML5Runtime_enabled: true
-      init_data:
+      - name: cpapp-uaa
+    provides:
+      - name: srv-api
+        properties:
+          srv-url: ${default-url}
+    parameters:
+      buildpack: nodejs_buildpack
+    build-parameters:
+      builder: npm
+  - name: cpapp-destinations
+    type: com.sap.application.content
+    requires:
+      - name: cpapp-uaa
+        parameters:
+          service-key:
+            name: cpapp-uaa-key
+      - name: cpapp-html5-repo-host
+        parameters:
+          service-key:
+            name: cpapp-html5-repo-host-key
+      - name: srv-api
+      - name: cpapp-destination
+        parameters:
+          content-target: true
+    parameters:
+      content:
         instance:
           destinations:
-          - Authentication: NoAuthentication
-            Name: ui5
-            ProxyType: Internet
-            Type: HTTP
-            URL: https://ui5.sap.com
+            - Authentication: OAuth2UserTokenExchange
+              Name: cpapp-app-srv
+              TokenServiceInstanceName: cpapp-uaa
+              TokenServiceKeyName: cpapp-uaa-key
+              URL: ~{srv-api/srv-url}
+              sap.cloud.service: cpapp.service
+            - Name: cpapp-html5-repo-host
+              ServiceInstanceName: cpapp-html5-repo-host
+              ServiceKeyName: cpapp-html5-repo-host-key
+              sap.cloud.service: cpapp.service
+            - Authentication: OAuth2UserTokenExchange
+              Name: cpapp-uaa
+              ServiceInstanceName: cpapp-uaa
+              ServiceKeyName: cpapp-uaa-key
+              sap.cloud.service: cpapp.service
           existing_destinations_policy: update
-    service: destination
-    service-plan: lite
-- name: cpapp-html5-repo-host
-  type: org.cloudfoundry.managed-service
-  parameters:
-    service: html5-apps-repo
-    service-plan: app-host
+    build-parameters:
+      no-source: true
+  - name: cpapp-app-content
+    type: com.sap.application.content
+    path: .
+    requires:
+      - name: cpapp-html5-repo-host
+        parameters:
+          content-target: true
+    build-parameters:
+      build-result: resources
+      requires:
+        - artifacts:
+            - comppgdmsreuse.zip
+          name: comppgdmsreuse
+          target-path: resources/
+  - name: comppgdmsreuse
+    type: html5
+    path: app/dmsreuse
+    build-parameters:
+      build-result: dist
+      builder: custom
+      commands:
+        - npm install
+        - npm run build:cf
+      supported-platforms:
+        []
+
+  - name: cpapp
+    type: approuter.nodejs
+    path: app/approuter
+    parameters:
+      keep-existing-routes: true
+      disk-quota: 256M
+      memory: 256M
+    requires:
+      - name: srv-api
+        group: destinations
+        properties:
+          name: srv-api # must be used in xs-app.json as well
+          url: ~{srv-url}
+          forwardAuthToken: true
+      - name: cpapp-uaa
+      - name: cpapp-destination
+resources:
+  - name: cpapp-uaa
+    type: org.cloudfoundry.managed-service
+    parameters:
+      config:
+        tenant-mode: dedicated
+        xsappname: cpapp-${org}-${space}
+      path: ./xs-security.json
+      service: xsuaa
+      service-plan: application
+  - name: cpapp-destination
+    type: org.cloudfoundry.managed-service
+    parameters:
+      config:
+        HTML5Runtime_enabled: true
+        init_data:
+          instance:
+            destinations:
+              - Authentication: NoAuthentication
+                Name: ui5
+                ProxyType: Internet
+                Type: HTTP
+                URL: https://ui5.sap.com
+              - Name: comsapecmreuse
+                Authentication: NoAuthentication                
+                ProxyType: Internet
+                Type: HTTP
+                URL: https://sharedsandbox.launchpad.cfapps.eu10.hana.ondemand.com/comsapecmreuse.comsapecmreusedocumentTable
+              - Name: ecmproxy
+                Authentication: NoAuthentication                
+                ProxyType: Internet
+                Type: HTTP
+                ForwardAuthToken: true
+                HTML5.DynamicDestination: true
+                HTML5.FowardAuthToken: true                
+                URL: https://crossfunctional-dev-org-pocs-cpapp.cfapps.eu10.hana.ondemand.com/                
+              - Name: ecmservice
+                Authentication: OAuth2ClientCredentials
+                clientId: sb-7cb0780d-a3d3-4305-8baf-dacda56dfc6d!b132952|sdm-di-SDM_DI_PROD-prod!b41064
+                clientSecret: xBmZX/gGU9XTcpvszwDkCCpMU1w=
+                tokenServiceURL: https://sharedsandbox.authentication.eu10.hana.ondemand.com/oauth/token
+                tokenServiceURLType: Dedicated                
+                ProxyType: Internet
+                Type: HTTP
+                URL: https://api-sdm-di.cfapps.eu10.hana.ondemand.com
+            existing_destinations_policy: update
+      service: destination
+      service-plan: lite
+  - name: cpapp-html5-repo-host
+    type: org.cloudfoundry.managed-service
+    parameters:
+      service: html5-apps-repo
+      service-plan: app-host
 parameters:
   deploy_mode: html5-repo
   enable-parallel-deployments: true
 build-parameters:
   before-all:
-  - builder: custom
-    commands:
-    - npx cds build --production
-    - npx rimraf gen/db/src/gen/data
+    - builder: custom
+      commands:
+        - npx cds build --production
+        - npx rimraf gen/db/src/gen/data
